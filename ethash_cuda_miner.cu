@@ -88,18 +88,146 @@ __constant__ uint2 Keccak_f1600_RC[24] = {
 /******************************************
 * FUNCTION: keccak_f1600_round
 *******************************************/
-void keccak_f1600_round(uint2* a, uint r, uint out_size)
+
+__device__ uint2 operator ^ (const uint2 &f, const uint2 &s) {
+       uint2 result;
+       result.x = f.x ^ s.x;
+       result.y = f.y ^ s.y;
+
+       return result;
+}
+    
+__device__ uint2 operator ^= (const uint2 &first, const uint2 &second) {
+    uint2 result;
+    result.x = first.x ^ second.x;
+    result.y = first.y ^ second.y;
+    return result;
+}
+
+__device__ uint2 bitselect(uint2 a, uint2 b, uint2 cmp) {
+    uint2 result;
+    result.x = (a.x & ~cmp.x) | (b.x & cmp.x);
+    result.y = (a.y & ~cmp.y) | (b.y & cmp.y);
+
+    return result;
+}
+
+__device__ void keccak_f1600_round(uint2* a, uint r, uint out_size)
 {
 	#if !__ENDIAN_LITTLE__
 		for (uint i = 0; i != 25; ++i)
 			a[i] = make_uint2(a[i].y, a[i].x);
 	#endif
-
-	/*** TODO - ASCHW4 **************************
+    
+   /*** DONE - ASCHW4 **************************
 	* Implementare Keccak/SHA3 pornind de la 
 	* resurse SHA3, cod OpenCL/C/Python/Go
 	*********************************************/
+   
+    uint2 b[25];
+    uint2 t;
 
+
+    // Theta
+	b[0] = a[0] ^ a[5] ^ a[10] ^ a[15] ^ a[20];
+	b[1] = a[1] ^ a[6] ^ a[11] ^ a[16] ^ a[21];
+	b[2] = a[2] ^ a[7] ^ a[12] ^ a[17] ^ a[22];
+	b[3] = a[3] ^ a[8] ^ a[13] ^ a[18] ^ a[23];
+	b[4] = a[4] ^ a[9] ^ a[14] ^ a[19] ^ a[24];
+	t = b[4] ^ make_uint2(b[1].x << 1 | b[1].y >> 31, b[1].y << 1 | b[1].x >> 31);
+	a[0] ^= t;
+	a[5] ^= t;
+	a[10] ^= t;
+	a[15] ^= t;
+	a[20] ^= t;
+	t = b[0] ^ make_uint2(b[2].x << 1 | b[2].y >> 31, b[2].y << 1 | b[2].x >> 31);
+	a[1] ^= t;
+	a[6] ^= t;
+	a[11] ^= t;
+	a[16] ^= t;
+	a[21] ^= t;
+	t = b[1] ^ make_uint2(b[3].x << 1 | b[3].y >> 31, b[3].y << 1 | b[3].x >> 31);
+	a[2] ^= t;
+	a[7] ^= t;
+	a[12] ^= t;
+	a[17] ^= t;
+	a[22] ^= t;
+	t = b[2] ^ make_uint2(b[4].x << 1 | b[4].y >> 31, b[4].y << 1 | b[4].x >> 31);
+	a[3] ^= t;
+	a[8] ^= t;
+	a[13] ^= t;
+	a[18] ^= t;
+	a[23] ^= t;
+	t = b[3] ^ make_uint2(b[0].x << 1 | b[0].y >> 31, b[0].y << 1 | b[0].x >> 31);
+	a[4] ^= t;
+	a[9] ^= t;
+	a[14] ^= t;
+	a[19] ^= t;
+	a[24] ^= t;
+
+	// Rho Pi
+	b[0] = a[0];
+	b[10] = make_uint2(a[1].x << 1 | a[1].y >> 31, a[1].y << 1 | a[1].x >> 31);
+	b[7] = make_uint2(a[10].x << 3 | a[10].y >> 29, a[10].y << 3 | a[10].x >> 29);
+	b[11] = make_uint2(a[7].x << 6 | a[7].y >> 26, a[7].y << 6 | a[7].x >> 26);
+	b[17] = make_uint2(a[11].x << 10 | a[11].y >> 22, a[11].y << 10 | a[11].x >> 22);
+	b[18] = make_uint2(a[17].x << 15 | a[17].y >> 17, a[17].y << 15 | a[17].x >> 17);
+	b[3] = make_uint2(a[18].x << 21 | a[18].y >> 11, a[18].y << 21 | a[18].x >> 11);
+	b[5] = make_uint2(a[3].x << 28 | a[3].y >> 4, a[3].y << 28 | a[3].x >> 4);
+	b[16] = make_uint2(a[5].y << 4 | a[5].x >> 28, a[5].x << 4 | a[5].y >> 28);
+	b[8] = make_uint2(a[16].y << 13 | a[16].x >> 19, a[16].x << 13 | a[16].y >> 19);
+	b[21] = make_uint2(a[8].y << 23 | a[8].x >> 9, a[8].x << 23 | a[8].y >> 9);
+	b[24] = make_uint2(a[21].x << 2 | a[21].y >> 30, a[21].y << 2 | a[21].x >> 30);
+	b[4] = make_uint2(a[24].x << 14 | a[24].y >> 18, a[24].y << 14 | a[24].x >> 18);
+	b[15] = make_uint2(a[4].x << 27 | a[4].y >> 5, a[4].y << 27 | a[4].x >> 5);
+	b[23] = make_uint2(a[15].y << 9 | a[15].x >> 23, a[15].x << 9 | a[15].y >> 23);
+	b[19] = make_uint2(a[23].y << 24 | a[23].x >> 8, a[23].x << 24 | a[23].y >> 8);
+	b[13] = make_uint2(a[19].x << 8 | a[19].y >> 24, a[19].y << 8 | a[19].x >> 24);
+	b[12] = make_uint2(a[13].x << 25 | a[13].y >> 7, a[13].y << 25 | a[13].x >> 7);
+	b[2] = make_uint2(a[12].y << 11 | a[12].x >> 21, a[12].x << 11 | a[12].y >> 21);
+	b[20] = make_uint2(a[2].y << 30 | a[2].x >> 2, a[2].x << 30 | a[2].y >> 2);
+	b[14] = make_uint2(a[20].x << 18 | a[20].y >> 14, a[20].y << 18 | a[20].x >> 14);
+	b[22] = make_uint2(a[14].y << 7 | a[14].x >> 25, a[14].x << 7 | a[14].y >> 25);
+	b[9] = make_uint2(a[22].y << 29 | a[22].x >> 3, a[22].x << 29 | a[22].y >> 3);
+	b[6] = make_uint2(a[9].x << 20 | a[9].y >> 12, a[9].y << 20 | a[9].x >> 12);
+	b[1] = make_uint2(a[6].y << 12 | a[6].x >> 20, a[6].x << 12 | a[6].y >> 20);
+
+	// Chi
+	a[0] = bitselect(b[0] ^ b[2], b[0], b[1]);
+	a[1] = bitselect(b[1] ^ b[3], b[1], b[2]);
+	a[2] = bitselect(b[2] ^ b[4], b[2], b[3]);
+	a[3] = bitselect(b[3] ^ b[0], b[3], b[4]);
+	if (out_size >= 4)
+	{
+		a[4] = bitselect(b[4] ^ b[1], b[4], b[0]);
+		a[5] = bitselect(b[5] ^ b[7], b[5], b[6]);
+		a[6] = bitselect(b[6] ^ b[8], b[6], b[7]);
+		a[7] = bitselect(b[7] ^ b[9], b[7], b[8]);
+		a[8] = bitselect(b[8] ^ b[5], b[8], b[9]);
+		if (out_size >= 8)
+		{
+			a[9] = bitselect(b[9] ^ b[6], b[9], b[5]);
+			a[10] = bitselect(b[10] ^ b[12], b[10], b[11]);
+			a[11] = bitselect(b[11] ^ b[13], b[11], b[12]);
+			a[12] = bitselect(b[12] ^ b[14], b[12], b[13]);
+			a[13] = bitselect(b[13] ^ b[10], b[13], b[14]);
+			a[14] = bitselect(b[14] ^ b[11], b[14], b[10]);
+			a[15] = bitselect(b[15] ^ b[17], b[15], b[16]);
+			a[16] = bitselect(b[16] ^ b[18], b[16], b[17]);
+			a[17] = bitselect(b[17] ^ b[19], b[17], b[18]);
+			a[18] = bitselect(b[18] ^ b[15], b[18], b[19]);
+			a[19] = bitselect(b[19] ^ b[16], b[19], b[15]);
+			a[20] = bitselect(b[20] ^ b[22], b[20], b[21]);
+			a[21] = bitselect(b[21] ^ b[23], b[21], b[22]);
+			a[22] = bitselect(b[22] ^ b[24], b[22], b[23]);
+			a[23] = bitselect(b[23] ^ b[20], b[23], b[24]);
+			a[24] = bitselect(b[24] ^ b[21], b[24], b[20]);
+		}
+	}
+
+	// Iota
+	a[0] ^= Keccak_f1600_RC[r];
+	
 	#if !__ENDIAN_LITTLE__
 		for (uint i = 0; i != 25; ++i)
 			a[i] = make_uint2(a[i].y, a[i].x);
@@ -109,7 +237,7 @@ void keccak_f1600_round(uint2* a, uint r, uint out_size)
 /******************************************
 * FUNCTION: keccak_f1600_no_absorb
 *******************************************/
-void keccak_f1600_no_absorb(ulong* a, uint in_size, uint out_size, uint isolate)
+__device__ void keccak_f1600_no_absorb(ulong* a, uint in_size, uint out_size, uint isolate)
 {
 	
 	for (uint i = in_size; i != 25; ++i)
@@ -140,27 +268,27 @@ void keccak_f1600_no_absorb(ulong* a, uint in_size, uint out_size, uint isolate)
 		// doesn't bother.
 		if (isolate)
 		{
-			/*** TODO - ASCHW4: call to keccak_f1600_round */
-			/* keccak_f1600_round((uint2*)a, r++, 25); */
+			/*** DONE - ASCHW4: call to keccak_f1600_round */
+			 keccak_f1600_round((uint2*)a, r++, 25);
 		}
 	}
 	while (r < 23);
 
 	// final round optimised for digest size
-	/*** TODO - ASCHW4: call to keccak_f1600_round */
-	/* keccak_f1600_round((uint2*)a, r++, out_size); */
+	/*** DONE - ASCHW4: call to keccak_f1600_round */
+	 keccak_f1600_round((uint2*)a, r++, out_size); 
 }
 
 #define copy(dst, src, count) for (uint i = 0; i != count; ++i) { (dst)[i] = (src)[i]; }
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 
-uint fnv(uint x, uint y)
+__device__ uint fnv(uint x, uint y)
 {
 	return x * FNV_PRIME ^ y;
 }
 
-uint4 fnv4(uint4 a, uint4 b)
+__device__ uint4 fnv4(uint4 a, uint4 b)
 {
 	uint4 res;
 
@@ -172,7 +300,7 @@ uint4 fnv4(uint4 a, uint4 b)
 	return res;
 }
 
-uint fnv_reduce(uint4 v)
+__device__ uint fnv_reduce(uint4 v)
 {
 	return fnv(fnv(fnv(v.x, v.y), v.z), v.w);
 }
@@ -198,7 +326,7 @@ typedef union
 /******************************************
 * FUNCTION: init_hash
 *******************************************/
-hash64_t init_hash( hash32_t const* header, ulong nonce, uint isolate)
+__device__ hash64_t init_hash( hash32_t const* header, ulong nonce, uint isolate)
 {
 	hash64_t init;
 	uint const init_size = countof(init.ulongs);
@@ -217,7 +345,7 @@ hash64_t init_hash( hash32_t const* header, ulong nonce, uint isolate)
 /******************************************
 * FUNCTION: inner_loop
 *******************************************/
-uint inner_loop(uint4 init, uint thread_id, uint* share, hash128_t const* g_dag, uint isolate)
+__device__ uint inner_loop(uint4 init, uint thread_id, uint* share, hash128_t const* g_dag, uint isolate)
 {
 	uint4 mix = init;
 
@@ -225,8 +353,8 @@ uint inner_loop(uint4 init, uint thread_id, uint* share, hash128_t const* g_dag,
 	if (thread_id == 0)
 		*share = mix.x;
 
-	/*** TODO - ASCHW4: uncomment when function qualifiers are OK!! */
-	//__syncthreads();
+	/*** DONE - ASCHW4: uncomment when function qualifiers are OK!! */
+	__syncthreads();
 	uint init0 = *share;
 
 	uint a = 0;
@@ -242,8 +370,8 @@ uint inner_loop(uint4 init, uint thread_id, uint* share, hash128_t const* g_dag,
 				uint m[4] = { mix.x, mix.y, mix.z, mix.w };
 				*share = fnv(init0 ^ (a+i), m[i]) % DAG_SIZE;
 			}
-			/*** TODO - ASCHW4: uncomment when function qualifiers are OK!! */
-			//__syncthreads();
+			/*** DONE - ASCHW4: uncomment when function qualifiers are OK!! */
+			__syncthreads();
 
 			mix = fnv4(mix, g_dag[*share].uint4s[thread_id]);
 		}
@@ -256,7 +384,7 @@ uint inner_loop(uint4 init, uint thread_id, uint* share, hash128_t const* g_dag,
 /******************************************
 * FUNCTION: final_hash
 *******************************************/
-hash32_t final_hash(hash64_t const* init, hash32_t const* mix, uint isolate)
+__device__ hash32_t final_hash(hash64_t const* init, hash32_t const* mix, uint isolate)
 {
 	ulong state[25];
 
@@ -290,7 +418,7 @@ typedef union
 * FUNCTION: compute_hash_simple
 * INFO: no optimisations
 *******************************************/
-hash32_t compute_hash_simple(
+__device__ hash32_t compute_hash_simple(
 	hash32_t const* g_header,
 	hash128_t const* g_dag,
 	ulong nonce,
@@ -334,7 +462,7 @@ hash32_t compute_hash_simple(
 /******************************************
 * FUNCTION: ethash_hash
 *******************************************/
-void ethash_hash(
+__global__ void ethash_hash(
 	hash32_t* g_hashes,
 	hash32_t const* g_header,
 	hash128_t const* g_dag,
@@ -342,8 +470,12 @@ void ethash_hash(
 	uint isolate
 	)
 {
-	/*** TODO - ASCHW4: compute global thread id from blockIdx, blockDim and threadIdx*/
-	uint const gid = 0;
+	/*** DONE - ASCHW4: compute global thread id from blockIdx, blockDim and threadIdx*/
+
+    int xindex = threadIdx.x + blockIdx.x * blockDim.x;
+    int yindex = threadIdx.y + blockIdx.y * blockDim.y;
+    
+    uint const gid = xindex + (gridDim.x * gridDim.y * yindex);
 	
 	g_hashes[gid] = compute_hash_simple(g_header, g_dag, start_nonce + gid, isolate);
 }
@@ -351,7 +483,7 @@ void ethash_hash(
 /******************************************
 * FUNCTION: ethash_search
 *******************************************/
-void ethash_search(
+__global__ void ethash_search(
 	uint* g_output,
 	 hash32_t const* g_header,
 	hash128_t const* g_dag,
@@ -360,16 +492,19 @@ void ethash_search(
 	uint isolate
 	)
 {
-	/*** TODO - ASCHW4: compute global thread id from blockIdx, blockDim and threadIdx*/
-	uint const gid = 0;
-	
+	/*** DONE - ASCHW4: compute global thread id from blockIdx, blockDim and threadIdx*/
+	int xindex = threadIdx.x + blockIdx.x * blockDim.x;
+    int yindex = threadIdx.y + blockIdx.y * blockDim.y;
+    
+    uint const gid = xindex + (gridDim.x * gridDim.y * yindex);
+
 	hash32_t hash = compute_hash_simple(g_header, g_dag, start_nonce + gid, isolate);
 
 	if (hash.ulongs[countof(hash.ulongs)-1] < target)
 	{
-		/*** TODO - ASCHW4: use atomicInc when function qualifiers are OK !!! */
-		//uint slot = min(MAX_OUTPUTS, atomicInc(&g_output[0], 1) + 1);
-		uint slot = min(MAX_OUTPUTS, (++g_output[0]) + 1);
+		/*** DONE - ASCHW4: use atomicInc when function qualifiers are OK !!! */
+		uint slot = min(MAX_OUTPUTS, atomicInc(&g_output[0], 1) + 1);
+		//uint slot = min(MAX_OUTPUTS, (++g_output[0]) + 1);
 		g_output[slot] = gid;
 	}
 }
@@ -398,10 +533,10 @@ bool ethash_cuda_miner::init(ethash_params const& params, ethash_h256_t const *s
 
 	// create buffer for dag
 	/*** DONE - ASCHW4: Allocate using cudaMalloc for m_dag, size m_params.full_size */
-    cudaMalloc(&m_dag, m_params.full_size);
+    cudaMalloc((void **)&m_dag, m_params.full_size);
 	// create buffer for header
 	/*** DONE - ASCHW4: Allocate using cudaMalloc for m_header, size 32 */
-    cudaMalloc(&m_header, 32);
+    cudaMalloc((void **)&m_header, 32);
 	// compute dag on CPU
 	{
 		void* cache_mem = malloc(m_params.cache_size + 63);
@@ -426,8 +561,8 @@ bool ethash_cuda_miner::init(ethash_params const& params, ethash_h256_t const *s
 		/*** Done - ASCHW4: Allocate memory on device/VRAM
 		* m_hash_buf[i], SIZE: 32*c_hash_batch_size
 		* m_search_buf[i], SIZE: (c_max_search_results + 1) * sizeof(uint32_t) */
-        cudaMalloc(&m_hash_buf[i], 32 * c_hash_batch_size);
-        cudaMalloc(&m_search_buf[i], (c_max_search_results + 1) * sizeof(uint32_t));
+        cudaMalloc((void **)&m_hash_buf[i], 32 * c_hash_batch_size);
+        cudaMalloc((void **)&m_search_buf[i], (c_max_search_results + 1) * sizeof(uint32_t));
 	}
 	return true;
 }
@@ -463,11 +598,12 @@ void ethash_cuda_miner::hash(uint8_t* ret, uint8_t const* header, uint64_t nonce
 			temp_pending_batch.buf = buf;
 
 			// execute it!
-			/*** TODO - ASCHW4: call to ethash_hash */
+			/*** DONE - ASCHW4: call to ethash_hash */
 			/* EXEC batch_count instances, 
 			* ARGS to pass: m_hash_buf[buf], m_header, m_dag, nonce, ~0U */
-
-			pending.push(temp_pending_batch);
+            ethash_hash<<<batch_count / THREADS_PER_HASH, THREADS_PER_HASH>>>((hash32_t *)m_hash_buf[buf], (hash32_t const *)m_header, (hash128_t const *)m_dag, (ulong)nonce, ~0U);
+			
+            pending.push(temp_pending_batch);
 			i += this_count;
 			buf = (buf + 1) % c_num_buffers;
 		}
@@ -480,7 +616,7 @@ void ethash_cuda_miner::hash(uint8_t* ret, uint8_t const* header, uint64_t nonce
 			// could use pinned host pointer instead, but this path isn't that important.
 			/*** DONE - ASCHW4: Copy memory VRAM->RAM, SRC:m_hash_buf[batch.buf], 
 			* DST:ret + batch.base*ETHASH_BYTES, SIZE:batch.count*ETHASH_BYTES */
-            cudaMemcpy(ret + batch.base * ETHASH_BYTES, m_hash_buf[bath.buf], batch.count * ETHASH_BYTES, cudaMemcpyDeviceToHost);
+            cudaMemcpy(ret + batch.base * ETHASH_BYTES, m_hash_buf[batch.buf], batch.count * ETHASH_BYTES, cudaMemcpyDeviceToHost);
 
 			pending.pop();
 		}
@@ -511,9 +647,10 @@ void ethash_cuda_miner::search(uint8_t const* header, uint64_t target, search_ho
 	unsigned buf = 0;
 	for (uint64_t start_nonce = 0; ; start_nonce += c_search_batch_size)
 	{
-		/*** TODO - ASCHW4: call to ethash_search */
+		/*** DONE - ASCHW4: call to ethash_search */
 		/* EXEC c_search_batch_size instances, 
 		* ARGS to pass: m_search_buf[buf], m_header, m_dag, start_nonce, target, ~0U */
+        ethash_search<<<c_search_batch_size / THREADS_PER_HASH, THREADS_PER_HASH>>>((uint *)m_search_buf[buf], (hash32_t const *)m_header, (hash128_t const *)m_dag, (ulong)start_nonce, target, ~0U);
 
 		pending_batch_search temp_pending_batch;
 		temp_pending_batch.start_nonce = start_nonce;
@@ -528,9 +665,6 @@ void ethash_cuda_miner::search(uint8_t const* header, uint64_t target, search_ho
 			pending_batch_search const& batch = pending.front();
 
 			// could use pinned host pointer instead
-			/*** DONE - ASCHW4: Copy memory VRAM->RAM, SRC:m_search_buf[batch.buf], 
-			* DST:results, SIZE:(1+c_max_search_results) * sizeof(uint32_t) */
-			cudaMemcpy(results, m_search_buf[batch.buf], (1 + c_max_search_results) * sizeof(uint32_t), cudaMemcpyDeviceToHost);
 			unsigned num_found = std::min(results[0], c_max_search_results);
 
 			uint64_t nonces[c_max_search_results];
