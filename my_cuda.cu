@@ -89,7 +89,7 @@ __constant__ uint2 Keccak_f1600_RC[24] = {
 * FUNCTION: keccak_f1600_round
 *******************************************/
 
-__device__ uint2 operator ^ (const uint2 &f, const uint2 &s) {
+__device__ __host__ uint2 operator ^ (const uint2 &f, const uint2 &s) {
        uint2 result;
        result.x = f.x ^ s.x;
        result.y = f.y ^ s.y;
@@ -97,15 +97,15 @@ __device__ uint2 operator ^ (const uint2 &f, const uint2 &s) {
        return result;
 }
     
-__device__ uint2 bitselect(uint2 a, uint2 b, uint2 cmp) {
+__device__ __host__ uint2 bitselect(uint2 a, uint2 b, uint2 cmp) {
     uint2 result;
-    result.x = (a.x & ~(cmp.x)) | (b.x & cmp.x);
-    result.y = (a.y & ~(cmp.y)) | (b.y & cmp.y);
+    result.x = (a.x & (~cmp.x)) | (b.x & cmp.x);
+    result.y = (a.y & (~cmp.y)) | (b.y & cmp.y);
 
     return result;
 }
 
-__device__ void keccak_f1600_round(uint2* a, uint r, uint out_size)
+__device__ __host__ void keccak_f1600_round(uint2* a, uint r, uint out_size)
 {
 	#if !__ENDIAN_LITTLE__
 		for (uint i = 0; i != 25; ++i)
@@ -137,7 +137,7 @@ __device__ void keccak_f1600_round(uint2* a, uint r, uint out_size)
 	a[6] = a[6] ^ t;
 	a[11] = a[11] ^ t;
 	a[16] = a[16] ^ t;
-	a[21] = a[21] ^ t;
+	a[21] = a[20] ^ t;
 	t = b[1] ^ make_uint2(b[3].x << 1 | b[3].y >> 31, b[3].y << 1 | b[3].x >> 31);
 	a[2] = a[2] ^ t;
 	a[7] = a[7] ^ t;
@@ -229,7 +229,7 @@ __device__ void keccak_f1600_round(uint2* a, uint r, uint out_size)
 /******************************************
 * FUNCTION: keccak_f1600_no_absorb
 *******************************************/
-__device__ void keccak_f1600_no_absorb(ulong* a, uint in_size, uint out_size, uint isolate)
+__host__ __device__ void keccak_f1600_no_absorb(ulong* a, uint in_size, uint out_size, uint isolate)
 {
 	
 	for (uint i = in_size; i != 25; ++i)
@@ -275,12 +275,12 @@ __device__ void keccak_f1600_no_absorb(ulong* a, uint in_size, uint out_size, ui
 
 #define countof(x) (sizeof(x) / sizeof(x[0]))
 
-__device__ uint fnv(uint x, uint y)
+__host__ __device__ uint fnv(uint x, uint y)
 {
 	return x * FNV_PRIME ^ y;
 }
 
-__device__ uint4 fnv4(uint4 a, uint4 b)
+__host__ __device__ uint4 fnv4(uint4 a, uint4 b)
 {
 	uint4 res;
 
@@ -292,7 +292,7 @@ __device__ uint4 fnv4(uint4 a, uint4 b)
 	return res;
 }
 
-__device__ uint fnv_reduce(uint4 v)
+__device__ __host__ uint fnv_reduce(uint4 v)
 {
 	return fnv(fnv(fnv(v.x, v.y), v.z), v.w);
 }
@@ -318,7 +318,7 @@ typedef union
 /******************************************
 * FUNCTION: init_hash
 *******************************************/
-__device__ hash64_t init_hash( hash32_t const* header, ulong nonce, uint isolate)
+__device__ __host__ hash64_t init_hash( hash32_t const* header, ulong nonce, uint isolate)
 {
 	hash64_t init;
 	uint const init_size = countof(init.ulongs);
@@ -376,7 +376,7 @@ __device__ uint inner_loop(uint4 init, uint thread_id, uint* share, hash128_t co
 /******************************************
 * FUNCTION: final_hash
 *******************************************/
-__device__ hash32_t final_hash(hash64_t const* init, hash32_t const* mix, uint isolate)
+__host__ __device__ hash32_t final_hash(hash64_t const* init, hash32_t const* mix, uint isolate)
 {
 	ulong state[25];
 
@@ -410,7 +410,7 @@ typedef union
 * FUNCTION: compute_hash_simple
 * INFO: no optimisations
 *******************************************/
-__device__ hash32_t compute_hash_simple(
+__device__ __host__ hash32_t compute_hash_simple(
 	hash32_t const* g_header,
 	hash128_t const* g_dag,
 	ulong nonce,
@@ -504,18 +504,18 @@ __global__ void ethash_search(
 /*----------------------------------------------------------------------
 *	HOST ONLY FUNCTIONS
 *---------------------------------------------------------------------*/
-ethash_cuda_miner::ethash_cuda_miner()
+__host__ ethash_cuda_miner::ethash_cuda_miner()
 {
 }
 
-void ethash_cuda_miner::finish()
+__host__ void ethash_cuda_miner::finish()
 {
 }
 
 /******************************************
 * FUNCTION: init
 *******************************************/
-bool ethash_cuda_miner::init(ethash_params const& params, ethash_h256_t const *seed, unsigned workgroup_size)
+__host__ bool ethash_cuda_miner::init(ethash_params const& params, ethash_h256_t const *seed, unsigned workgroup_size)
 {
 	// store params
 	m_params = params;
@@ -569,7 +569,7 @@ struct pending_batch
 	unsigned buf;
 };
 
-void ethash_cuda_miner::hash(uint8_t* ret, uint8_t const* header, uint64_t nonce, unsigned count)
+__host__ void ethash_cuda_miner::hash(uint8_t* ret, uint8_t const* header, uint64_t nonce, unsigned count)
 {
 	std::queue<pending_batch> pending;
 
@@ -624,7 +624,7 @@ struct pending_batch_search
 	unsigned buf;
 };
 
-void ethash_cuda_miner::search(uint8_t const* header, uint64_t target, search_hook& hook)
+__host__ void ethash_cuda_miner::search(uint8_t const* header, uint64_t target, search_hook& hook)
 {
 	std::queue<pending_batch_search> pending;
 	static uint32_t const c_zero = 0;
@@ -685,3 +685,4 @@ void ethash_cuda_miner::search(uint8_t const* header, uint64_t target, search_ho
 	
 	delete[] results;
 }
+
